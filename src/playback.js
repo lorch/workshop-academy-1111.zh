@@ -5,7 +5,8 @@ import { createHmac } from 'node:crypto';
 import { closeSync, createReadStream, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { getSetting } from './db.js';
-import { getCourse, getPublishedCourse } from './courses.js';
+import { getCourse, getPublishedCourse, parseCourseId } from './courses.js';
+import { hasActiveEnrollment } from './enrollments.js';
 import { HttpError, constantTimeEqual, parseId, sendJson } from './http.js';
 
 export const VIDEO_FILENAME = /^[a-z0-9][a-z0-9-]{0,80}\.mp4$/;
@@ -13,7 +14,7 @@ export const VIDEO_FILENAME = /^[a-z0-9][a-z0-9-]{0,80}\.mp4$/;
 /**
  * 观看资格：判断某个用户此刻能否取得新的播放地址。
  * 课程页的“开始观看”按钮状态和 POST /api/courses/:id/play 都只经过这里，
- * 新增观看条件（例如报名）时只需修改这一个函数。
+ * 依次检查登录状态、课程发布状态与本人有效报名。
  *
  * 返回 { ok: true, course } 或 { ok: false, status, reason, message, course? }。
  */
@@ -24,6 +25,10 @@ export function checkWatchEligibility(db, user, courseId) {
   const course = getPublishedCourse(db, courseId);
   if (!course) {
     return { ok: false, status: 404, reason: 'course_unavailable', message: '课程不存在或尚未发布' };
+  }
+  // 页面播放面板与直调接口共用本判定：登录、发布状态、本人有效报名依次检查。
+  if (!hasActiveEnrollment(db, user.id, course.id)) {
+    return { ok: false, status: 403, reason: 'enrollment_required', message: '请先报名后再观看' };
   }
   return { ok: true, course };
 }
@@ -164,7 +169,7 @@ export function registerPlaybackRoutes(app) {
   const { router, config } = app;
 
   router.post('/api/courses/:id/play', (ctx) => {
-    const result = checkWatchEligibility(ctx.db, ctx.user, parseId(ctx.params.id));
+    const result = checkWatchEligibility(ctx.db, ctx.user, parseCourseId(ctx.params.id));
     if (!result.ok) throw new HttpError(result.status, result.message);
     sendJson(ctx.res, 200, createPlaybackGrant(ctx.db, result.course.id, config.playbackTtlMs));
   });

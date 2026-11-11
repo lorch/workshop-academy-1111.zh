@@ -21,6 +21,14 @@ export function getPublishedCourse(db, id) {
   return db.prepare('SELECT * FROM courses WHERE id = ? AND published = 1').get(id) ?? null;
 }
 
+/** 课程编号不合法、不存在或未发布时对外使用同一条 404 中文提示。 */
+export function parseCourseId(value) {
+  if (!/^[1-9]\d{0,15}$/.test(String(value))) throw new HttpError(404, '课程不存在或尚未发布');
+  const id = Number(value);
+  if (!Number.isSafeInteger(id)) throw new HttpError(404, '课程不存在或尚未发布');
+  return id;
+}
+
 export function getCourse(db, id) {
   return db.prepare('SELECT * FROM courses WHERE id = ?').get(id) ?? null;
 }
@@ -151,7 +159,7 @@ function requireCourse(db, rawId) {
 }
 
 function requirePublishedCourse(db, rawId) {
-  const course = getPublishedCourse(db, parseId(rawId));
+  const course = getPublishedCourse(db, parseCourseId(rawId));
   if (!course) throw new HttpError(404, '课程不存在或尚未发布');
   return course;
 }

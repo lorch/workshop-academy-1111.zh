@@ -3,7 +3,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { client, login, startApp } from './helpers.js';
+import { client, enroll, login, startApp } from './helpers.js';
 
 const newCourse = {
   title: '课堂实战：从需求到验收',
@@ -111,6 +111,7 @@ test('管理员创建草稿、修改并发布课程，目录随之变化', async
 
   const student = client(app.url);
   await login(student);
+  await enroll(student, course.id);
   assert.equal((await student.post(`/api/courses/${course.id}/play`)).status, 200);
 
   assert.equal((await admin.patch(`/api/admin/courses/${course.id}`, { published: false })).status, 200);

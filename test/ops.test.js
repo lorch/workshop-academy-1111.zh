@@ -12,7 +12,7 @@ import { once } from 'node:events';
 import { promisify } from 'node:util';
 import { DatabaseSync } from 'node:sqlite';
 import { defaultMigrationsDir, projectRoot, readMigrationFiles } from '../src/db.js';
-import { client, login, tempDir } from './helpers.js';
+import { client, enroll, login, tempDir } from './helpers.js';
 
 const execFileAsync = promisify(execFile);
 const NODE_ARGS = ['--disable-warning=ExperimentalWarning'];
@@ -189,6 +189,7 @@ test('新增迁移后：启动被拒绝，备份并迁移后保留原数据启�
   assert.equal((await (await fetch(`${server.url}/api/courses`)).json()).courses.length, 3);
   const student = client(server.url);
   await login(student);
+  await enroll(student, 1);
   assert.equal((await student.post('/api/courses/1/play')).status, 200);
 
   const whileRunning = await runNode('scripts/migrate.js', env, root);

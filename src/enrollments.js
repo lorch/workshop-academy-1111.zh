@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 SubLang International <https://sublang.ai>
 
 import { requireUser } from './auth.js';
-import { getPublishedCourse } from './courses.js';
+import { getPublishedCourse, parseCourseId } from './courses.js';
 import { HttpError, parseId, readJson, sendJson } from './http.js';
 
 export const ENROLLMENT_ACTIVE = 'active';
@@ -74,7 +74,7 @@ export function registerEnrollmentRoutes(app) {
   router.post('/api/enrollments', async (ctx) => {
     const user = requireUser(ctx);
     const input = await readJson(ctx.req);
-    const course = getPublishedCourse(ctx.db, parseId(input.courseId));
+    const course = getPublishedCourse(ctx.db, parseCourseId(input.courseId));
     if (!course) throw new HttpError(404, '课程不存在或尚未发布');
 
     const active = findActiveEnrollment(ctx.db, user.id, course.id);

@@ -3,7 +3,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { client, login, startApp } from './helpers.js';
+import { client, enroll, login, startApp } from './helpers.js';
 
 test('目录与详情只公开已发布课程', async (t) => {
   const app = await startApp(t);
@@ -23,7 +23,7 @@ test('目录与详情只公开已发布课程', async (t) => {
   for (const id of ['4', '999', 'abc', '0', '01']) {
     const response = await fetch(`${app.url}/api/courses/${id}`);
     assert.equal(response.status, 404, id);
-    assert.ok((await response.json()).error);
+    assert.deepEqual(await response.json(), { error: '课程不存在或尚未发布' }, '草稿、不存在与非法编号一视同仁');
   }
 });
 
@@ -75,4 +75,36 @@ test('封面按课程编号确定生成像素 SVG', async (t) => {
   assert.equal(svg, await (await fetch(`${app.url}/covers/1.svg`)).text());
   assert.notEqual(svg, await (await fetch(`${app.url}/covers/2.svg`)).text());
   assert.equal((await fetch(`${app.url}/covers/x.svg`)).status, 404);
+});
+
+test('报名前后课程集合、详情与页面课程信息保持一致', async (t) => {
+  const app = await startApp(t);
+  const c = client(app.url);
+  const catalogOf = async () => (await (await c.get('/api/courses')).json()).courses;
+  const detailOf = async () => (await (await c.get('/api/courses/1')).json()).course;
+  // 顶栏与播放面板随登录、报名状态变化，这里只比较课程信息本身。
+  const infoOf = (html) => ({
+    title: /<h1>Python 入门：写出第一个程序<\/h1>/.test(html),
+    instructor: /林知远/.test(html),
+    cover: /\/covers\/1\.svg/.test(html),
+    links: [...html.matchAll(/href="\/courses\/(\d+)"/g)].map((m) => m[1]).join(','),
+  });
+
+  const before = await catalogOf();
+  const detailBefore = await detailOf();
+  const pageBefore = infoOf(await (await c.get('/courses/1')).text());
+  assert.deepEqual(before.map((course) => course.id), [1, 2, 3]);
+
+  await login(c);
+  assert.deepEqual(await catalogOf(), before, '登录不改变可见性');
+
+  const record = await enroll(c, 1);
+  assert.deepEqual(await catalogOf(), before, '报名不改变可见性或排序');
+  assert.deepEqual(await detailOf(), detailBefore);
+  assert.deepEqual(infoOf(await (await c.get('/courses/1')).text()), pageBefore);
+
+  await c.del(`/api/enrollments/${record.id}`);
+  assert.deepEqual(await catalogOf(), before, '取消报名不改变可见性');
+  assert.deepEqual(await detailOf(), detailBefore);
+  assert.deepEqual(infoOf(await (await c.get('/courses/1')).text()), pageBefore);
 });
