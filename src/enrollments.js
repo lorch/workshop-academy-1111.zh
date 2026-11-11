@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 SubLang International <https://sublang.ai>
 
+import { requireUser } from './auth.js';
+import { getPublishedCourse } from './courses.js';
+import { HttpError, parseId, readJson, sendJson } from './http.js';
+
 export const ENROLLMENT_ACTIVE = 'active';
 export const ENROLLMENT_CANCELLED = 'cancelled';
 
@@ -61,4 +65,40 @@ export function cancelEnrollment(db, id, userId, now = Date.now()) {
       .run(ENROLLMENT_CANCELLED, now, id, ENROLLMENT_ACTIVE);
   }
   return findEnrollment(db, id, userId);
+}
+
+/** 三个入口都以当前会话身份界定数据作用域，不读取请求体中的自报身份。 */
+export function registerEnrollmentRoutes(app) {
+  const { router } = app;
+
+  router.post('/api/enrollments', async (ctx) => {
+    const user = requireUser(ctx);
+    const input = await readJson(ctx.req);
+    const course = getPublishedCourse(ctx.db, parseId(input.courseId));
+    if (!course) throw new HttpError(404, '课程不存在或尚未发布');
+
+    const active = findActiveEnrollment(ctx.db, user.id, course.id);
+    if (active) {
+      sendJson(ctx.res, 200, { enrollment: publicEnrollment(active) });
+      return;
+    }
+    // Q4 仍待定：本轮不规定取消后再次报名，明确拒绝而不产生第二条记录。
+    if (findLatestEnrollment(ctx.db, user.id, course.id)) {
+      throw new HttpError(409, '该课程报名已取消，本轮暂不支持再次报名');
+    }
+    const created = insertEnrollment(ctx.db, user.id, course.id);
+    sendJson(ctx.res, 201, { enrollment: publicEnrollment(created) });
+  });
+
+  router.get('/api/enrollments', (ctx) => {
+    const user = requireUser(ctx);
+    sendJson(ctx.res, 200, { enrollments: listEnrollments(ctx.db, user.id).map(publicEnrollment) });
+  });
+
+  router.add('DELETE', '/api/enrollments/:id', (ctx) => {
+    const user = requireUser(ctx);
+    const row = cancelEnrollment(ctx.db, parseId(ctx.params.id), user.id);
+    if (!row) throw new HttpError(404, '报名记录不存在');
+    sendJson(ctx.res, 200, { enrollment: publicEnrollment(row) });
+  });
 }

@@ -48,6 +48,8 @@ export function client(baseUrl) {
     get: (path, options) => request(path, options),
     post: (path, json = {}, options = {}) => request(path, { method: 'POST', json, ...options }),
     patch: (path, json = {}, options = {}) => request(path, { method: 'PATCH', json, ...options }),
+    // /api/ 下的非 GET 请求必须有 JSON 头，DELETE 没有请求体也要带。
+    del: (path, options = {}) => request(path, { method: 'DELETE', headers: { 'content-type': 'application/json' }, ...options }),
   };
 }
 
@@ -55,4 +57,13 @@ export async function login(c, username = 'student', password = '123456') {
   const response = await c.post('/api/login', { username, password });
   if (response.status !== 200) throw new Error(`登录失败：${response.status} ${await response.text()}`);
   return (await response.json()).user;
+}
+
+/** 为当前会话报名一门课程，返回报名记录。 */
+export async function enroll(c, courseId = 1) {
+  const response = await c.post('/api/enrollments', { courseId });
+  if (![200, 201].includes(response.status)) {
+    throw new Error(`报名失败：${response.status} ${await response.text()}`);
+  }
+  return (await response.json()).enrollment;
 }

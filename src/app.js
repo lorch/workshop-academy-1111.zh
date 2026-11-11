@@ -18,6 +18,7 @@ import {
 import { Router } from './router.js';
 import { errorPage } from './views/error.js';
 import { registerCourseRoutes } from './courses.js';
+import { registerEnrollmentRoutes } from './enrollments.js';
 import { registerPlaybackRoutes, watchStateForPage } from './playback.js';
 
 export const RUN_FILENAME = 'run.json';
@@ -196,6 +197,7 @@ export function createApp(options = {}) {
   registerCoreRoutes(app, { maintenanceToken });
   registerAuthRoutes(app, { demoAccounts, demoPassword: DEMO_PASSWORD });
   registerCourseRoutes(app, { watchState: watchStateForPage });
+  registerEnrollmentRoutes(app);
   registerPlaybackRoutes(app);
 
   function acquireLock() {
