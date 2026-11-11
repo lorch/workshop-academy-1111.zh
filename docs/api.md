@@ -22,6 +22,7 @@
 | 401 | 需要登录 |
 | 403 | 没有权限，或播放地址签名无效 |
 | 404 | 不存在或未发布 |
+| 409 | 报名已取消，本轮不支持再次报名 |
 | 410 | 播放地址已过期 |
 | 413 / 415 | 请求体过大 / 不是 JSON |
 
@@ -62,18 +63,55 @@ curl -s http://localhost:3000/api/courses
 curl -s http://localhost:3000/api/courses/1
 ```
 
+## 报名（登录后）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/enrollments` | 请求体 `{"courseId":1}`，为当前登录账号报名已发布课程，返回 201 和 `{"enrollment"}` |
+| `GET` | `/api/enrollments` | 返回 `{"enrollments": [...]}`，只含本人的有效与已取消报名 |
+| `DELETE` | `/api/enrollments/:id` | 取消本人的一条报名，返回 200 和 `{"enrollment"}` |
+
+报名记录字段：`id`、`courseId`、`courseTitle`、`status`（`active` 有效、`cancelled` 已取消）、`createdAt`（毫秒时间戳）。
+
+| 情形 | 结果 |
+| --- | --- |
+| 未登录 | 401 |
+| 课程不存在、未发布或编号不合法 | 404 |
+| 当前账号已有有效报名 | 200 返回既有记录，不新增 |
+| 报名已取消后再次报名 | 409，本轮不支持再次报名 |
+| 查看或取消他人报名、编号不合法 | 404 |
+
+- 报名人数不设上限；取消只把记录标记为已取消，不物理删除，服务重启后仍可查。
+- 报名信息仅本人可见；管理员本轮没有报名列表，也不能代报名或导出报名。
+- 请求体中自报的账号名、学员编号或角色一律忽略，只认当前会话身份。
+- 本轮不提供报名页面入口，报名通过上述接口完成；课程目录与课程详情保持公开可浏览。
+
+```sh
+curl -s -b cookies.txt -X POST -H 'Content-Type: application/json' \
+  -d '{"courseId":1}' http://localhost:3000/api/enrollments
+# {"enrollment":{"id":1,"courseId":1,"courseTitle":"…","status":"active","createdAt":…}}
+
+curl -s -b cookies.txt http://localhost:3000/api/enrollments
+
+curl -s -b cookies.txt -X DELETE -H 'Content-Type: application/json' \
+  http://localhost:3000/api/enrollments/1
+```
+
 ## 观看
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `POST` | `/api/courses/:id/play` | 取得播放地址 `{"url", "expiresAt"}`；未登录 401，课程不存在或未发布 404 |
+| `POST` | `/api/courses/:id/play` | 取得播放地址 `{"url", "expiresAt"}`；未登录 401，课程不存在或未发布 404，无有效报名 403 |
 | `GET` / `HEAD` | `/media/:id?expires=…&signature=…` | 读取视频，支持 `Range`；签名无效 403，已过期 410，视频缺失 404 |
 
-观看资格只在签发播放地址时检查，页面的“开始观看”按钮和直接调用接口经过同一个检查（`src/playback.js` 中的 `checkWatchEligibility`）。
-播放地址默认 60 秒内有效，地址本身就是授权，不需要 cookie；已签发的地址在到期前都可读取，即使课程随后被取消发布。
+观看资格只在签发播放地址时检查：需要当前账号已登录、课程已发布且本人持该课程的有效报名。页面的“开始观看”按钮和直接调用接口经过同一个检查（`src/playback.js` 中的 `checkWatchEligibility`）；无有效报名时页面显示“请先报名后再观看”，接口返回 403。
+播放地址默认 60 秒内有效，地址本身就是授权，不需要 cookie；已签发的地址在到期前都可读取，即使随后取消报名或课程被取消发布。
 页面播放时如果地址过期，会自动重新申请并从当前进度继续。
 
 ```sh
+curl -s -b cookies.txt -X POST -H 'Content-Type: application/json' \
+  -d '{"courseId":1}' http://localhost:3000/api/enrollments
+
 curl -s -b cookies.txt -X POST -H 'Content-Type: application/json' \
   http://localhost:3000/api/courses/1/play
 # {"url":"/media/1?expires=1794190000000&signature=…","expiresAt":1794190000000}
