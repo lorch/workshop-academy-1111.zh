@@ -29,11 +29,14 @@ meta.md       规约的规约
 | [DR-000](decisions/000-spec-structure-format.md) | 000-spec-structure-format.md | 规约结构、格式和命名约定 |
 | [DR-001](decisions/001-enrollment-mvp.md) | 001-enrollment-mvp.md | 学堂报名最小可验证版本：范围、业务边界、已确认决定与排除项 |
 | [DR-002](decisions/002-personal-center-learning-status.md) | 002-personal-center-learning-status.md | 个人中心与课程学习状态：新增需求草案 |
-| [DR-003](decisions/103-lan-access.md) | 003-lan-access.md | 局域网访问作为显式开关，保留默认仅本机监听与 Host 校验 |
+| [DR-003](decisions/003-course-creation-access.md) | 003-course-creation-access.md | 新建课程入口的账号权限：新增需求草案 |
 
 ## 规约包
 
 | 文件 | 摘要 |
 | --- | --- |
+| [course-catalog.md](packages/course-catalog.md) | 课程目录与详情的公开可见性、公开字段、页面呈现与封面 |
+| [course-enrollment.md](packages/course-enrollment.md) | 报名状态、本人报名管理、有效报名判定与持久化 |
+| [course-access.md](packages/course-access.md) | 观看资格、页面与接口统一、播放地址签发与地址即授权 |
 | [git.md](packages/git.md) | 提交信息格式和 AI 共同作者 trailers |
 | [licensing.md](packages/licensing.md) | SPDX 头要求与验证检查 |
