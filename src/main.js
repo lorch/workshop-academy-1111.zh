@@ -24,6 +24,8 @@ function parsePort(value) {
 function command(script, { withPort = false } = {}) {
   const env = [];
   if (process.env.DATA_DIR) env.push(`DATA_DIR=${process.env.DATA_DIR}`);
+  if (process.env.HOST) env.push(`HOST=${process.env.HOST}`);
+  if (process.env.ALLOWED_HOSTS) env.push(`ALLOWED_HOSTS='${process.env.ALLOWED_HOSTS}'`);
   if (withPort && process.env.PORT) env.push(`PORT=${process.env.PORT}`);
   return [...env, script].join(' ');
 }
@@ -45,7 +47,13 @@ function describeFailure(error) {
   return error.message;
 }
 
-const app = createApp({ port: parsePort(process.env.PORT), logRequests: true });
+const allowedHosts = (process.env.ALLOWED_HOSTS ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+const app = createApp({
+  host: process.env.HOST || '127.0.0.1',
+  allowedHosts,
+  port: parsePort(process.env.PORT),
+  logRequests: true,
+});
 
 try {
   const url = await app.start();

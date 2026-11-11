@@ -28,6 +28,7 @@ meta.md       规约的规约
 | --- | --- | --- |
 | [DR-000](decisions/000-spec-structure-format.md) | 000-spec-structure-format.md | 规约结构、格式和命名约定 |
 | [DR-001](decisions/001-enrollment-mvp.md) | 001-enrollment-mvp.md | 学堂报名最小可验证版本：范围、业务边界、已确认决定与排除项 |
+| [DR-002](decisions/002-lan-access.md) | 002-lan-access.md | 局域网访问作为显式开关，保留默认仅本机监听与 Host 校验 |
 
 ## 规约包
 

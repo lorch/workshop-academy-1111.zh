@@ -6,9 +6,21 @@ import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
 import { cpSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createApp, readRunInfo, runFilePath } from '../src/app.js';
+import { createApp, isWildcardHost, localAddresses, normalizeHost, readRunInfo, runFilePath } from '../src/app.js';
 import { defaultMigrationsDir, readMigrationFiles } from '../src/db.js';
 import { client, startApp, tempDir } from './helpers.js';
+
+/** 用指定的 Host 头请求首页，返回状态码。 */
+function statusWithHost(port, host) {
+  return new Promise((resolveStatus, reject) => {
+    const req = httpRequest({ host: '127.0.0.1', port, path: '/', headers: { host } }, (res) => {
+      res.resume();
+      resolveStatus(res.statusCode);
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
 
 test('页面返回带站点外壳的中文 HTML 和安全响应头', async (t) => {
   const app = await startApp(t);
@@ -85,6 +97,32 @@ test('非 GET 接口要求 JSON 与同源请求，并拒绝陌生 Host', async (
     req.end();
   });
   assert.equal(status, 400);
+});
+
+test('只有通配监听地址才开启局域网模式', () => {
+  assert.equal(isWildcardHost('0.0.0.0'), true);
+  assert.equal(isWildcardHost('::'), true);
+  assert.equal(isWildcardHost('127.0.0.1'), false);
+  assert.equal(normalizeHost('Example.LOCAL:3000'), 'example.local');
+});
+
+test('默认模式不接受局域网 Host', async (t) => {
+  const app = await startApp(t);
+  const { port } = new URL(app.url);
+  assert.equal(await statusWithHost(port, '10.10.31.106'), 400);
+  assert.equal(app.notices.some((notice) => /局域网访问/.test(notice)), false);
+});
+
+test('局域网模式放行本机网卡地址与自定义主机名，仍拒绝陌生 Host', async (t) => {
+  const app = await startApp(t, { lanAccess: true, allowedHosts: ['my-mac.local'] });
+  const { port } = new URL(app.url);
+  assert.equal(await statusWithHost(port, 'localhost'), 200);
+  for (const address of localAddresses()) {
+    assert.equal(await statusWithHost(port, address), 200, `本机网卡地址 ${address} 应可访问`);
+  }
+  assert.equal(await statusWithHost(port, 'my-mac.local'), 200, 'ALLOWED_HOSTS 中的主机名应可访问');
+  assert.equal(await statusWithHost(port, 'evil.example'), 400, '陌生 Host 仍应拒绝');
+  assert.ok(app.notices.some((notice) => /局域网访问/.test(notice)));
 });
 
 test('健康检查报告迁移状态', async (t) => {

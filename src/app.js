@@ -4,6 +4,7 @@
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { linkSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { networkInterfaces } from 'node:os';
 import { resolve } from 'node:path';
 import {
   applyMigrations, databaseFile, defaultMigrationsDir, migrationStatus, openDatabase, projectRoot,
@@ -20,7 +21,35 @@ import { registerCourseRoutes } from './courses.js';
 import { registerPlaybackRoutes, watchStateForPage } from './playback.js';
 
 export const RUN_FILENAME = 'run.json';
-const ALLOWED_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
+const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
+const WILDCARD_HOSTS = new Set(['0.0.0.0', '::', '[::]']);
+
+/** 去掉 Host 头的端口并统一大小写；IPv6 的方括号保持不变。 */
+export function normalizeHost(value) {
+  return String(value ?? '').trim().replace(/:\d+$/, '').toLowerCase();
+}
+
+/** 是否监听所有网卡：此时局域网内的其他设备也能连进来。 */
+export function isWildcardHost(host) {
+  return WILDCARD_HOSTS.has(normalizeHost(host));
+}
+
+// 虚拟网卡（VPN、AirDrop、网桥等）上的地址不是可分享的局域网地址。
+const VIRTUAL_PREFIXES = ['utun', 'tun', 'tap', 'ppp', 'awdl', 'llw', 'bridge', 'vmenet', 'lo'];
+
+/** 本机物理网卡上的地址，用于生成可分享的局域网访问地址。 */
+export function localAddresses() {
+  const addresses = [];
+  for (const [name, entries] of Object.entries(networkInterfaces())) {
+    if (VIRTUAL_PREFIXES.some((prefix) => name.startsWith(prefix))) continue;
+    for (const entry of entries ?? []) {
+      if (entry.internal || entry.address.includes('%')) continue;
+      if (entry.family === 'IPv4') addresses.push(entry.address);
+      else if (entry.family === 'IPv6' && !entry.address.startsWith('fe80')) addresses.push(`[${entry.address}]`);
+    }
+  }
+  return [...new Set(addresses)];
+}
 
 export class StartupError extends Error {
   constructor(message, { code, pending } = {}) {
@@ -120,6 +149,8 @@ export function createApp(options = {}) {
   const config = {
     dataDir: resolve(options.dataDir ?? resolveDataDir()),
     host: options.host ?? '127.0.0.1',
+    lanAccess: options.lanAccess ?? isWildcardHost(options.host ?? '127.0.0.1'),
+    allowedHosts: options.allowedHosts ?? [],
     port: options.port ?? 3000,
     migrationsDir: options.migrationsDir ?? defaultMigrationsDir,
     publicDir: options.publicDir ?? resolve(projectRoot, 'public'),
@@ -127,6 +158,15 @@ export function createApp(options = {}) {
     playbackTtlMs: options.playbackTtlMs ?? 60_000,
     logRequests: options.logRequests ?? false,
   };
+  // 始终校验 Host，防止 DNS rebinding：局域网模式只额外放行本机网卡地址与显式配置的主机名。
+  const allowedHostnames = new Set(LOOPBACK_HOSTNAMES);
+  if (config.lanAccess) {
+    for (const address of localAddresses()) allowedHostnames.add(address);
+  } else if (!isWildcardHost(config.host)) {
+    allowedHostnames.add(normalizeHost(config.host));
+  }
+  for (const extra of config.allowedHosts) allowedHostnames.add(normalizeHost(extra));
+
   const maintenanceToken = randomBytes(32).toString('hex');
   const runFile = runFilePath(config.dataDir);
   const router = new Router();
@@ -204,7 +244,14 @@ export function createApp(options = {}) {
           resolveListen();
         });
       });
-      url = `http://${config.host}:${server.address().port}`;
+      const port = server.address().port;
+      // 通配地址本身不能用来访问，运行记录里始终写可连接的地址。
+      const urlHost = isWildcardHost(config.host) ? '127.0.0.1'
+        : config.host.includes(':') && !config.host.startsWith('[') ? `[${config.host}]` : config.host;
+      url = `http://${urlHost}:${port}`;
+      if (config.lanAccess) {
+        for (const address of localAddresses()) notices.push(`局域网访问：http://${address}:${port}`);
+      }
       writeFileAtomic(runFile, JSON.stringify({ pid: process.pid, url, token: maintenanceToken, startedAt: Date.now() }), { exclusive: false });
       return url;
     } catch (error) {
@@ -270,8 +317,11 @@ export function createApp(options = {}) {
       const requestUrl = new URL(req.url, 'http://127.0.0.1');
       pathname = requestUrl.pathname;
       ctx.url = requestUrl;
-      const hostname = String(req.headers.host || '').replace(/:\d+$/, '').toLowerCase();
-      if (!ALLOWED_HOSTNAMES.has(hostname)) throw new HttpError(400, '请求的 Host 无效，请通过 localhost 或 127.0.0.1 访问');
+      const hostname = normalizeHost(req.headers.host);
+      if (!allowedHostnames.has(hostname)) {
+        const hint = config.lanAccess ? 'localhost、127.0.0.1 或本机局域网地址' : 'localhost 或 127.0.0.1';
+        throw new HttpError(400, `请求的 Host 无效，请通过 ${hint} 访问`);
+      }
       if (req.method !== 'GET' && req.method !== 'HEAD') {
         const origin = req.headers.origin;
         if (origin !== undefined && origin !== `http://${req.headers.host}`) throw new HttpError(403, '请求来源不受信任');
