@@ -5,9 +5,9 @@
 
 ## 状态
 
-待审阅（2026-11-11）。
-本记录由开发依据 [DR-001](../decisions/001-enrollment-mvp.md) 与已确认规约包编写，供产品与测试对照审阅。
-人工修订并确认后才执行本记录的各项任务。
+已完成（2026-11-11，待人工验收）。
+产品与测试确认按最小范围执行，不修订 Q4 与报名页面入口的规约留白。
+全部任务已执行并通过验证，证据见 `docs/verification.md`。
 
 ## 意图
 
@@ -28,16 +28,16 @@
 
 ## 交付项
 
-- [ ] `migrations/002-enrollments.sql` 以编号大于 `001-init.sql` 的新迁移建立报名表，并以有效状态唯一约束保证同一学员对同一课程至多一条有效报名 [[course-enrollment-8](../packages/course-enrollment.md#course-enrollment-8)]。
-- [ ] 报名记录的创建、查看、取消与有效报名判定持久化到数据库，记录不物理删除且重启后可查 [[course-enrollment-2](../packages/course-enrollment.md#course-enrollment-2)] [[course-enrollment-3](../packages/course-enrollment.md#course-enrollment-3)]。
-- [ ] `POST /api/enrollments`、`GET /api/enrollments`、`DELETE /api/enrollments/:id` 按会话身份实现报名、查看与取消，且不提供他人报名视图 [[course-enrollment-1](../packages/course-enrollment.md#course-enrollment-1)] [[course-enrollment-5](../packages/course-enrollment.md#course-enrollment-5)] [[course-enrollment-6](../packages/course-enrollment.md#course-enrollment-6)] [[course-enrollment-7](../packages/course-enrollment.md#course-enrollment-7)]。
-- [ ] `checkWatchEligibility` 在同一判定函数内加入有效报名条件，课程页播放面板与播放地址签发接口共用该判定 [[course-access-1](../packages/course-access.md#course-access-1)] [[course-access-2](../packages/course-access.md#course-access-2)] [[course-access-7](../packages/course-access.md#course-access-7)]。
-- [ ] 播放地址签发、签名校验与视频读取保持现有承诺，已签发地址在有效期内仍可读取 [[course-access-3](../packages/course-access.md#course-access-3)] [[course-access-4](../packages/course-access.md#course-access-4)] [[course-access-5](../packages/course-access.md#course-access-5)] [[course-access-6](../packages/course-access.md#course-access-6)]。
-- [ ] 课程目录与详情在报名前后保持公开且内容一致 [[course-catalog-4](../packages/course-catalog.md#course-catalog-4)]。
-- [ ] 集成与系统测试覆盖 [[course-enrollment-9](../packages/course-enrollment.md#course-enrollment-9)] 至 [[course-enrollment-14](../packages/course-enrollment.md#course-enrollment-14)]、[[course-access-9](../packages/course-access.md#course-access-9)] 至 [[course-access-14](../packages/course-access.md#course-access-14)]，并回归 [[course-catalog-6](../packages/course-catalog.md#course-catalog-6)] 至 [[course-catalog-9](../packages/course-catalog.md#course-catalog-9)]。
-- [ ] `docs/api.md` 与 `README.md` 同步报名接口、观看资格与运维说明，不改写已有的播放地址承诺。
-- [ ] 验证记录写明命令、结果、失败项与实际取舍，未执行或未通过的交付项保持未勾选。
-- [ ] 每项任务形成一次符合 [[git-2](../packages/git.md#git-2)]、[[git-4](../packages/git.md#git-4)]、[[git-5](../packages/git.md#git-5)] 的提交，并交付提交号、运行入口、账号与数据准备方式。
+- [x] `migrations/002-enrollments.sql` 以编号大于 `001-init.sql` 的新迁移建立报名表，并以有效状态唯一约束保证同一学员对同一课程至多一条有效报名 [[course-enrollment-8](../packages/course-enrollment.md#course-enrollment-8)]。
+- [x] 报名记录的创建、查看、取消与有效报名判定持久化到数据库，记录不物理删除且重启后可查 [[course-enrollment-2](../packages/course-enrollment.md#course-enrollment-2)] [[course-enrollment-3](../packages/course-enrollment.md#course-enrollment-3)]。
+- [x] `POST /api/enrollments`、`GET /api/enrollments`、`DELETE /api/enrollments/:id` 按会话身份实现报名、查看与取消，且不提供他人报名视图 [[course-enrollment-1](../packages/course-enrollment.md#course-enrollment-1)] [[course-enrollment-5](../packages/course-enrollment.md#course-enrollment-5)] [[course-enrollment-6](../packages/course-enrollment.md#course-enrollment-6)] [[course-enrollment-7](../packages/course-enrollment.md#course-enrollment-7)]。
+- [x] `checkWatchEligibility` 在同一判定函数内加入有效报名条件，课程页播放面板与播放地址签发接口共用该判定 [[course-access-1](../packages/course-access.md#course-access-1)] [[course-access-2](../packages/course-access.md#course-access-2)] [[course-access-7](../packages/course-access.md#course-access-7)]。
+- [x] 播放地址签发、签名校验与视频读取保持现有承诺，已签发地址在有效期内仍可读取 [[course-access-3](../packages/course-access.md#course-access-3)] [[course-access-4](../packages/course-access.md#course-access-4)] [[course-access-5](../packages/course-access.md#course-access-5)] [[course-access-6](../packages/course-access.md#course-access-6)]。
+- [x] 课程目录与详情在报名前后保持公开且内容一致 [[course-catalog-4](../packages/course-catalog.md#course-catalog-4)]。
+- [x] 集成与系统测试覆盖 [[course-enrollment-9](../packages/course-enrollment.md#course-enrollment-9)] 至 [[course-enrollment-14](../packages/course-enrollment.md#course-enrollment-14)]、[[course-access-9](../packages/course-access.md#course-access-9)] 至 [[course-access-14](../packages/course-access.md#course-access-14)]，并回归 [[course-catalog-6](../packages/course-catalog.md#course-catalog-6)] 至 [[course-catalog-9](../packages/course-catalog.md#course-catalog-9)]。
+- [x] `docs/api.md` 与 `README.md` 同步报名接口、观看资格与运维说明，不改写已有的播放地址承诺。
+- [x] 验证记录写明命令、结果、失败项与实际取舍，未执行或未通过的交付项保持未勾选。
+- [x] 每项任务形成一次符合 [[git-2](../packages/git.md#git-2)]、[[git-4](../packages/git.md#git-4)]、[[git-5](../packages/git.md#git-5)] 的提交，并交付提交号、运行入口、账号与数据准备方式。
 
 ## 任务
 
@@ -73,4 +73,7 @@
 - 因本轮新增数据库迁移，按 `npm run backup`、`npm run migrate`、`npm start` 顺序执行，再核对原账号、课程数据与重启后的报名记录；恢复演练只用副本数据目录，不动正在使用的数据。
 - 验证证据记录命令、退出码与实际输出；修复后必须复测，未执行或未通过的交付项保持未完成。
 - 审阅基线：Node.js 24.22.2 下 `npm test` 39 项中 38 通过、1 失败，唯一失败是已跟踪的 `.idea/.gitignore` 缺少 SPDX 头；Node.js 22 下为 34 通过、5 失败；`spex lint` 无问题。
-- 待人工确认的取舍：Q4 取消后再次报名的接口结果在规约中未定义；报名页面入口未写入规约；自编规约文件现有的版权头与 [[licensing-9](../packages/licensing.md#licensing-9)] 规定的项目持有人不一致；已被 Git 跟踪的 `.idea/` 目录是否在本轮清理以恢复全绿；小组共享文档应记录本轮任务与验证安排的关键取舍、理由与实际结果。
+- 执行结果（2026-11-11）：Node.js 24.22.2 下 `npm test` 51 项中 51 通过，`spex lint` 无问题；基线噪声已用两行 SPDX 注释消除。
+- 执行结果：备份、迁移、启动、重启与副本恢复演练均通过，原账号 3 个、课程 4 门不变，报名记录重启后仍为有效且可签发播放地址；未触碰仓库 `data/`。
+- 执行结果：五个任务各形成一次引用 IR-001 的提交，提交序列、运行入口、账号与数据准备方式见 `docs/verification.md`。
+- 已确认的取舍：Q4 取消后再次报名保持规约未定义，接口以 409 明确拒绝；不新增报名页面入口；自编规约文件的版权头漂移与 `.idea/` 目录清理不在本轮范围；`course-access-14` 以白盒断言加真实服务重签替代浏览器真机验证；小组共享飞书文档由组长同步，本地记录见 `docs/verification.md`。
